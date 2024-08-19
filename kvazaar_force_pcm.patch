@@ -1,0 +1,112 @@
+diff --git a/src/encmain.c b/src/encmain.c
+index 3debdb9a..3b7f07be 100644
+--- a/src/encmain.c
++++ b/src/encmain.c
+@@ -341,9 +341,9 @@ static bool read_header(FILE* input, kvz_config* config) {
+       buffer[i] = getc(input);
+       // Start code of frame data
+       if (buffer[i] == 0x0A) {
+-        for (; i > 0; i--) {
++        /*for (; i > 0; i--) {  // not sure why this is here! it means the first frame gets read wrong
+           ungetc(buffer[i], input);
+-        }
++        }*/
+         end_of_header = true;
+         break;
+       }
+diff --git a/src/encode_coding_tree.c b/src/encode_coding_tree.c
+index c005cd81..86305be0 100644
+--- a/src/encode_coding_tree.c
++++ b/src/encode_coding_tree.c
+@@ -750,7 +750,9 @@ void kvz_encode_coding_tree(encoder_state_t * const state,
+   cabac_data_t * const cabac = &state->cabac;
+   const encoder_control_t * const ctrl = state->encoder_control;
+   const videoframe_t * const frame = state->tile->frame;
+-  const cu_info_t *cur_cu   = kvz_cu_array_at_const(frame->cu_array, x, y);
++  cu_info_t *cur_cu   = kvz_cu_array_at_const(frame->cu_array, x, y);
++
++  cur_cu->type = CU_PCM; // HACK
+ 
+   const int cu_width = LCU_WIDTH >> depth;
+   const int half_cu  = cu_width >> 1;
+@@ -901,30 +903,30 @@ void kvz_encode_coding_tree(encoder_state_t * const state,
+   else if (cur_cu->type == CU_PCM) {
+     kvz_cabac_encode_bin_trm(cabac, 1); // IPCMFlag == 1
+     kvz_cabac_finish(cabac);
+-    kvz_bitstream_add_rbsp_trailing_bits(cabac.stream);
++    kvz_bitstream_add_rbsp_trailing_bits(cabac->stream);
+ 
+     // PCM sample
+-    pixel *base_y = &cur_pic->y_data[x     + y * encoder->in.width];
+-    pixel *base_u = &cur_pic->u_data[x / 2 + y / 2 * encoder->in.width / 2];
+-    pixel *base_v = &cur_pic->v_data[x / 2 + y / 2 * encoder->in.width / 2];
++    kvz_pixel *base_y = &frame->source->y[x     + y * frame->source->stride];
++    kvz_pixel *base_u = &frame->source->u[x / 2 + y / 2 * frame->source->stride / 2];
++    kvz_pixel *base_v = &frame->source->v[x / 2 + y / 2 * frame->source->stride / 2];
+ 
+     // Luma
+     for (unsigned y_px = 0; y_px < LCU_WIDTH >> depth; y_px++) {
+       for (unsigned  x_px = 0; x_px < LCU_WIDTH >> depth; x_px++) {
+-        kvz_bitstream_put(cabac.stream, base_y[x_px + y_px * encoder->in.width], 8);
++        kvz_bitstream_put(cabac->stream, base_y[x_px + y_px * frame->source->stride], 8);
+       }
+     }
+ 
+     // Chroma
+-    if (encoder->in.video_format != FORMAT_400) {
++    if (ctrl->cfg.input_format != KVZ_FORMAT_P400) {
+       for (unsigned y_px = 0; y_px < LCU_WIDTH >> (depth + 1); y_px++) {
+         for (unsigned x_px = 0; x_px < LCU_WIDTH >> (depth + 1); x_px++) {
+-          kvz_bitstream_put(cabac.stream, base_u[x_px + y_px * (encoder->in.width >> 1)], 8);
++          kvz_bitstream_put(cabac->stream, base_u[x_px + y_px * (frame->source->stride / 2)], 8);
+         }
+       }
+       for (unsigned y_px = 0; y_px < LCU_WIDTH >> (depth + 1); y_px++) {
+         for (unsigned x_px = 0; x_px < LCU_WIDTH >> (depth + 1); x_px++) {
+-          kvz_bitstream_put(cabac.stream, base_v[x_px + y_px * (encoder->in.width >> 1)], 8);
++          kvz_bitstream_put(cabac->stream, base_v[x_px + y_px * (frame->source->stride / 2)], 8);
+         }
+       }
+     }
+diff --git a/src/global.h b/src/global.h
+index c34f3e62..1804806a 100644
+--- a/src/global.h
++++ b/src/global.h
+@@ -140,7 +140,7 @@ typedef int16_t coeff_t;
+ #define MAX_PU_DEPTH 4
+ 
+ //! spec: pcm_enabled_flag, Setting to 1 will enable using PCM blocks (current intra-search does not consider PCM)
+-#define ENABLE_PCM 0
++#define ENABLE_PCM 1
+ 
+ //! skip residual coding when it's under _some_ threshold
+ #define OPTIMIZATION_SKIP_RESIDUAL_ON_THRESHOLD 0
+diff --git a/src/search.c b/src/search.c
+index 381cd946..ed161da5 100644
+--- a/src/search.c
++++ b/src/search.c
+@@ -883,7 +883,7 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth,
+         cur_cu);
+     }
+     else {
+-      // Intra 4×4 PUs
++      // Intra 4ï¿½4 PUs
+       if (state->frame->slicetype != KVZ_SLICE_I) {
+         cabac_ctx_t* ctx = &(cabac->ctx.cu_pred_mode_model);
+         CABAC_FBITS_UPDATE(cabac, ctx, 1, bits, "pred_mode_flag");
+diff --git a/src/yuv_io.c b/src/yuv_io.c
+index b308b94d..6208212c 100644
+--- a/src/yuv_io.c
++++ b/src/yuv_io.c
+@@ -206,8 +206,9 @@ static int read_frame_header(FILE* input) {
+ 
+   while (!frame_start) {
+     for (int i = 0; i < 256; i++) {
+-      buffer[i] = getc(input);
+-      if (buffer[i] == EOF) return 0;
++      int res = getc(input);
++      buffer[i] = res;
++      if (res == EOF) return 0;
+       // ToDo: frame headers can have some information structured same as start headers
+       // This info is just skipped for now, since it's not clear what it could be.
+       if (buffer[i] == 0x0A) {

@@ -1,0 +1,70 @@
+diff --git a/common/base.c b/common/base.c
+index faf2050e..ae756c79 100644
+--- a/common/base.c
++++ b/common/base.c
+@@ -391,6 +391,7 @@ REALIGN_STACK void x264_param_default( x264_param_t *param )
+     param->i_bframe_pyramid = X264_B_PYRAMID_NORMAL;
+     param->b_interlaced = 0;
+     param->b_constrained_intra = 0;
++    param->b_force_pcm = 0;
+ 
+     param->b_deblocking_filter = 1;
+     param->i_deblocking_filter_alphac0 = 0;
+@@ -1164,6 +1165,8 @@ REALIGN_STACK int x264_param_parse( x264_param_t *p, const char *name, const cha
+     }
+     OPT("constrained-intra")
+         p->b_constrained_intra = atobool(value);
++    OPT("force-pcm")
++        p->b_force_pcm = atobool(value);
+     OPT("cqm")
+     {
+         if( strstr( value, "flat" ) )
+diff --git a/encoder/analyse.c b/encoder/analyse.c
+index 2acc9d6c..657e9d69 100644
+--- a/encoder/analyse.c
++++ b/encoder/analyse.c
+@@ -2931,7 +2931,11 @@ void x264_macroblock_analyse( x264_t *h )
+     mb_analyse_init( h, &analysis, h->mb.i_qp );
+ 
+     /*--------------------------- Do the analysis ---------------------------*/
+-    if( h->sh.i_type == SLICE_TYPE_I )
++    if( h->sh.i_type == SLICE_TYPE_I && h->param.b_force_pcm)
++    {
++        h->mb.i_type = I_PCM;
++    }
++    else if( h->sh.i_type == SLICE_TYPE_I )
+     {
+ intra_analysis:
+         if( analysis.i_mbrd )
+diff --git a/x264.c b/x264.c
+index 6c9bb62d..ae797348 100644
+--- a/x264.c
++++ b/x264.c
+@@ -1043,6 +1043,7 @@ static struct option long_options[] =
+     { "bff",                  no_argument,       NULL, OPT_INTERLACED },
+     { "no-interlaced",        no_argument,       NULL, OPT_INTERLACED },
+     { "constrained-intra",    no_argument,       NULL, 0 },
++    { "force-pcm",            no_argument,       NULL, 0 },
+     { "cabac",                no_argument,       NULL, 0 },
+     { "no-cabac",             no_argument,       NULL, 0 },
+     { "qp",                   required_argument, NULL, 'q' },
+@@ -1737,6 +1738,7 @@ generic_option:
+         info.interlaced = param->b_interlaced;
+         info.tff = param->b_tff;
+     }
++
+     if( input_opt.input_range != RANGE_AUTO )
+         info.fullrange = input_opt.input_range;
+ 
+diff --git a/x264.h b/x264.h
+index 2cd5df52..d6a5c451 100644
+--- a/x264.h
++++ b/x264.h
+@@ -378,6 +378,7 @@ typedef struct x264_param_t
+ 
+     int         b_interlaced;
+     int         b_constrained_intra;
++    int         b_force_pcm;
+ 
+     int         i_cqm_preset;
+     char        *psz_cqm_file;      /* filename (in UTF-8) of CQM file, JM format */

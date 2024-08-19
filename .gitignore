@@ -1,0 +1,7 @@
+**/__pycache__/
+*.mp4
+*.yuv
+*.y4m
+*.db
+*.db-shm
+*.db-wal
