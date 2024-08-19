@@ -73,7 +73,7 @@ In another terminal session, start the demo EME player web server:
 
 Navigate to http://localhost:8069/eme_demo_player/ in Chromium (the attack itself does work in Firefox, but it doesn't like my demo player and I can't be bothered to work out why). You should be able to press play and watch the video as-is, but if you tried to save a copy of the video, you wouldn't be able to play it without knowing the key (in this case you can see the key in the demo player's source code, because the Clearkey system isn't real DRM - but pretend you can't see it!).
 
-![image](https://github.com/DavidBuchanan314/DeCENC-dev/assets/13520633/f80d0595-ace5-4f07-a1de-c153a4090122)
+![image](https://github.com/user-attachments/assets/69ece24b-e3f2-4452-8568-c26088c0fc8b)
 
 For demonstration purposes, the MSE shim userscript is pre-loaded - there should be an "AutoPwn" button in the top-right corner of the webpage. Click it, and the attack will start. You should see the video element start playing what looks like random noise.
 
@@ -83,7 +83,7 @@ OBS tips: Make sure the width and height are multiples of 2. Output > Recording 
 
 Once you do have everything recording properly, it should look something like this:
 
-![image](https://github.com/DavidBuchanan314/DeCENC-dev/assets/13520633/b175826f-c4e6-4799-b9e2-f24dbcf0db7d)
+![image](https://github.com/user-attachments/assets/2111d530-bb19-41a6-aa1f-fd0951cee3b2)
 
 Once the progress on the dashboard reaches 100% (because the demo files are small, this should be near-instant), you can stop the server(s) and perform the final decryption step:
 
