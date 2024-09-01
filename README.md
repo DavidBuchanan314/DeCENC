@@ -11,7 +11,7 @@
 '--'                                              '--'
 ```
 
-Please see [Phrack #71 0x06](http://phrack.org/issues/71/6.html#article) for a technical introduction to DeCENC.
+Please see [Phrack #71 0x06](https://phrack.org/issues/71/6.html#article) for a technical introduction to DeCENC.
 
 [MPEG-CENC](https://docs.unified-streaming.com/documentation/drm/common-encryption.html) is an encrypted media container format commonly used by DRM systems, but it is not a DRM system in and of itself. Per [ISO/IEC 23001-7:2023](https://www.iso.org/standard/84637.html):
 
