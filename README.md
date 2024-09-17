@@ -34,6 +34,7 @@ We need a patched version of `x264`. Build the patched version like so:
 
 ```
 git clone --recursive git@github.com:DavidBuchanan314/DeCENC.git
+cd DeCENC
 
 cd x264
 git apply ../x264_force_pcm.patch
